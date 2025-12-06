@@ -319,7 +319,7 @@ async function test () {
 			await new Promise(r => setTimeout(() => {
 				https.get(
 					// can get rate limited so be careful lol
-					getFetchGetOptions("/users/dj-viking/repos?per_page=140", false),
+					getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
 					// getFetchGetOptions("/app", true),
 					(res) => {
 						if (res.statusCode !== 200) {
