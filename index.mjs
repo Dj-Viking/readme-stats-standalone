@@ -143,7 +143,7 @@ async function githubthing(req, server_res) {
 		if (req.url.includes("github-stats")) {
 			console.log("get stats");
 
-			const path = "/users/dj-viking/repos?per_page=140";
+			const path = "/users/dj-viking/repos?per_page=141";
 			/**
 			 * @type {https.RequestOptions}
 			 */
@@ -307,7 +307,6 @@ const server = http.createServer((req, res) => {
 });
 
 function main () {
-
 	server.listen(8080);
 }
 
