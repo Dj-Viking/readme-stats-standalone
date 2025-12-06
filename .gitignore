@@ -1,2 +1,5 @@
 *.crt
+*.pem
 *cookie
+appid
+jwt

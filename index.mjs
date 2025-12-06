@@ -5,7 +5,7 @@ import fs from "fs";
 import {Card} from "./card.js";
 
 const cert = fs.readFileSync("./cert.crt");
-const cookie = fs.readFileSync("./sessioncookie");
+const token = fs.readFileSync("./jwt");
 
 /**
  * 
@@ -14,8 +14,9 @@ const cookie = fs.readFileSync("./sessioncookie");
  * @param {string} hostname 
  * @returns 
  */
-function getLangFetchGetOptions(
+function getFetchGetOptions(
 	path,
+	isApp = false,
 	protocol = "https:", 
 	hostname = "api.github.com", 
 ) {
@@ -26,7 +27,7 @@ function getLangFetchGetOptions(
 		method: "GET",
 		headers: {
 			"user-agent": "some dude lol",
-			cookie: `user_session=${cookie}`
+			"Authorization": `${isApp ? "Bearer" : "jwt"} ${token}`,
 		},
 		// @ts-ignore
 		agentOptions: {
@@ -72,7 +73,7 @@ function generateStatsSVG(info) {
 /**
  * 
  * @param {string} repoitemsjsonstr 
- * @returns {Promise<RepoItem[]>}
+ * @returns {Promise<[any[], RepoItem[]]>}
  */
 async function parseGithubJSON(repoitemsjsonstr) {
 	// todo: make another request for all the lines of code for that lang for each repo and return that too
@@ -82,15 +83,16 @@ async function parseGithubJSON(repoitemsjsonstr) {
 	const repoitems = JSON.parse(repoitemsjsonstr);
 
 	/**
-	 * @type {Array<Promise<string>>} 
+	 * @type {Array<{p: Promise<string>, url: string}>} 
 	 */
-	const promises = repoitems.map((item) => {
-		return new Promise(r => {
-			const url = new URL(item.languages_url);
-			const opts = getLangFetchGetOptions(url.pathname)
-
-			setTimeout(() => {
-				console.log('requesting next lang')
+	const promises = repoitems
+	.filter(item => !item.fork && !item.private)
+	.map((item) => {
+		const url = new URL(item.languages_url);
+		const opts = getFetchGetOptions(url.pathname)
+		return {
+			p: new Promise(async r => {
+				// console.log('requesting next lang')
 				https.get(
 					opts,
 					(res) => {
@@ -99,17 +101,33 @@ async function parseGithubJSON(repoitemsjsonstr) {
 						res.on( "end", () => r(data) );
 					}
 				);
-			}, 1000);
-
-		});
+			}),
+			url: url.pathname
+		}
 	});
 	return new Promise(async resolve => {
-		const results = await Promise.all(promises);
+
+		/**
+		 * @type {string[]}
+		 */
+		let results = [];
+
+		for (let i = 0; i < promises.length; i++) {
+			const p = promises[i];
+			await (async () => {
+				await new Promise(res => setTimeout(async () => {
+					console.log(`fetching ${i} of ${promises.length}`, "\n", p.url)
+					const result = await p.p;
+					results.push(result);
+					res(null);
+				}, 1000));
+			})();
+		}
 
 		console.log("lang results", results);
 
 		const json = JSON.parse(repoitemsjsonstr);
-		resolve(json);
+		resolve([results, json]);
 	});
 }
 
@@ -125,23 +143,11 @@ async function githubthing(req, server_res) {
 		if (req.url.includes("github-stats")) {
 			console.log("get stats");
 
+			const path = "/users/dj-viking/repos?per_page=140";
 			/**
 			 * @type {https.RequestOptions}
 			 */
-			const getoptions = {
-				method: "GET",
-				protocol: "https:",
-				hostname: "api.github.com", 
-				path: "/users/dj-viking/repos?per_page=140",
-				headers: {
-					"user-agent": "some dude lol",
-					cookie: `user_session=${cookie}`
-				},
-				// @ts-ignore
-				agentOptions: {
-					ca: fs.readFileSync("./cert.crt")
-				}
-			};
+			const getoptions = getFetchGetOptions(path);
 
 			https.get(
 				getoptions,
@@ -198,7 +204,20 @@ function handlereq(req, server_res) {
 	try {
 		githubthing(req, server_res)
 		.then(parseGithubJSON)
-		.then((repoitems) => {
+		// .then((repoitems) => {
+		.then(([langresults, repoitems]) => {
+			/**
+			 * @type {RepoItem[]}
+			 */
+			let data = [];
+			
+			if (typeof repoitems === "string") {
+				// probabaly something happened to first request
+				// or the first .then was commented out for testing
+				data = JSON.parse(repoitems);
+			} else {
+				data = repoitems;
+			}
 			const headers = { "Content-Type": "text/html" };
 
 			const svg = generateStatsSVG(repoitems); 
@@ -233,7 +252,7 @@ function handlereq(req, server_res) {
 						${svg.render("hello world")}
 					</div>
 
-					${Array.isArray(repoitems) ? repoitems
+					${Array.isArray(data) ? (data
 					.filter(item => Boolean(
 						!item.fork && !item.private
 					))
@@ -263,7 +282,12 @@ function handlereq(req, server_res) {
 						`;
 					}).join(`
 						<br/>
-					`) : "json was not an array"}
+					`)) 
+					:  (
+							"json was not an array" + `
+							${JSON.stringify(repoitems)}
+						`
+					)}
 				</body>
 				</html>
 			`;
@@ -272,7 +296,7 @@ function handlereq(req, server_res) {
 			server_res.end(testpage, "utf-8");
 		}).catch(e => { throw e; });
 	} catch (e) {
-		console.log(e);
+		console.log("error fetching github api\n=========\n", e);
 	}
 }
 
@@ -282,4 +306,44 @@ const server = http.createServer((req, res) => {
     handlereq(req, res);
 });
 
-server.listen(8080);
+function main () {
+
+	server.listen(8080);
+}
+
+async function test () {
+	// sequential promises
+	let data = "";
+	for (let i = 0; i < 3; i++) {
+		await (async () => {
+			await new Promise(r => setTimeout(() => {
+				https.get(
+					// can get rate limited so be careful lol
+					getFetchGetOptions("/users/dj-viking/repos?per_page=140", false),
+					// getFetchGetOptions("/app", true),
+					(res) => {
+						if (res.statusCode !== 200) {
+							console.log("bad request", res.statusCode, res.statusMessage)
+						} else {
+							console.log("response", res.statusCode, res.statusMessage)
+						}
+						res.on("data", (buffer) => {
+							data += buffer.toString();
+						})
+						res.on('end', () => {
+							// console.log('tick', i, data.length, data); 
+							console.log('tick', i, data.length); 
+							console.log('end')
+						});
+					}
+				)
+				r(null)
+			}, 1000))
+			console.log("data", data.length);
+		})()
+	}
+
+}
+
+// main();
+await test();
