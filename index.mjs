@@ -390,7 +390,7 @@ async function testgraphql() {
 						})
 						res.on('end', () => {
 							console.log('tick', i, data.length); 
-							console.log(JSON.parse(data)); 
+							// console.log(JSON.parse(data).data.__schema.types); 
 							console.log('end')
 						});
 					}
