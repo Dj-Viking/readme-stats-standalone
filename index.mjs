@@ -34,7 +34,7 @@ function getFetchOptions(
 		// ...(path.includes("graphql") ? { search: "query='query { viewer { login }}'" }: {}),
 		...(method === "POST" ? { body } : {}),
 		headers: {
-			...(method === "POST" ? { "Content-Type": "application/graphql" } : {}),
+			...(method === "POST" ? { "Content-Type": "application/json" } : {}),
 			"user-agent": "some dude lol",
 			"Authorization": `${ isApp ? "bearer" : "jwt" } ${path.includes("graphql") ? pat : token}`},
 		// @ts-ignore
@@ -127,6 +127,8 @@ async function parseGithubJSON(repoitemsjsonstr) {
 					console.log(`fetching ${i} of ${promises.length}`, "\n", p.url)
 					const result = await p.p;
 					results.push(result);
+					console.log("*** got a result ***");
+					console.log(result);
 					res(null);
 					// probably have to go really slow
 					// and my rate limit is 60 and i have to make more than 60 requests to get all my language stuff
@@ -328,9 +330,9 @@ async function test () {
 			await new Promise(r => setTimeout(() => {
 				https.get(
 					// can get rate limited so be careful lol
-					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
+					// getFetchOptions("/users/dj-viking/repos?per_page=141", false),
 					getFetchOptions("/rate_limit", false),
-					// getFetchGetOptions("/app", true),
+					// getFetchOptions("/app", true),
 					(res) => {
 						if (res.statusCode !== 200) {
 							console.log("bad request", res.statusCode, res.statusMessage, res.headers)
@@ -355,17 +357,22 @@ async function test () {
 
 }
 
+// for whatever really dumb reason - the github graphql api doesn't work when using inside nodejs with https module
+// I'm sure there is some hidden policy that they are not telling me about but I don't see why it shouldn't work, 
+// servers call other apis all the damn time!!!! 
 async function testgraphql() {
 
 	let data = "";
+	// const body = '{"query": "query { repository(owner: \"octocat\", name: \"Spoon-Knife\") { name } }"}'
 	for (let i = 0; i < 1; i++) {
 		await (async () => {
 			await new Promise(r => setTimeout(() => {
 				const opts = getFetchOptions(
 					"/graphql", 
 					true, 
-					// "{\"query\": \"query {viewer {login}}\"}", 
-					JSON.stringify({query: "query { viewer { login }}"}), 
+					// body,
+					"{\"query\": \"query {viewer {login}}\"}", 
+					// JSON.stringify({query: "query { viewer { login }}"}), 
 					"POST"
 				);
 				// @ts-ignore
@@ -373,9 +380,7 @@ async function testgraphql() {
 				console.log("opts", opts);
 				const req = https.request(
 					// can get rate limited so be careful lol
-					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
 					opts,
-					// getFetchGetOptions("/app", true),
 					(res) => {
 						if (res.statusCode !== 200) {
 							console.log("bad request", res.statusCode, res.statusMessage, res.headers)
@@ -404,6 +409,6 @@ async function testgraphql() {
 }
 
 // main();
-// await test();
+await test();
 
-await testgraphql();
+// await testgraphql();
