@@ -120,7 +120,9 @@ async function parseGithubJSON(repoitemsjsonstr) {
 					const result = await p.p;
 					results.push(result);
 					res(null);
-				}, 1000));
+					// probably have to go really slow
+					// and my rate limit is 60 and i have to make more than 60 requests to get all my language stuff
+				}, 10000));
 			})();
 		}
 
@@ -318,13 +320,14 @@ async function test () {
 			await new Promise(r => setTimeout(() => {
 				https.get(
 					// can get rate limited so be careful lol
-					getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
+					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
+					getFetchGetOptions("/rate_limit", false),
 					// getFetchGetOptions("/app", true),
 					(res) => {
 						if (res.statusCode !== 200) {
-							console.log("bad request", res.statusCode, res.statusMessage)
+							console.log("bad request", res.statusCode, res.statusMessage, res.headers)
 						} else {
-							console.log("response", res.statusCode, res.statusMessage)
+							console.log("response", res.statusCode, res.statusMessage, res.headers)
 						}
 						res.on("data", (buffer) => {
 							data += buffer.toString();
