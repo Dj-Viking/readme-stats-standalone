@@ -6,17 +6,23 @@ import {Card} from "./card.js";
 
 const cert = fs.readFileSync("./cert.crt");
 const token = fs.readFileSync("./jwt");
+const pat = fs.readFileSync("./pat");
 
 /**
  * 
- * @param {string} path 
- * @param {string} protocol 
- * @param {string} hostname 
+ * @param {string}   path 
+ * @param {boolean?} isApp 
+ * @param {string?}  body,
+ * @param {"GET" | "POST"}  method,
+ * @param {string?}  protocol 
+ * @param {string?}  hostname 
  * @returns 
  */
-function getFetchGetOptions(
+function getFetchOptions(
 	path,
 	isApp = false,
+	body = "{}",
+	method = "GET",
 	protocol = "https:", 
 	hostname = "api.github.com", 
 ) {
@@ -24,11 +30,13 @@ function getFetchGetOptions(
 		protocol,
 		hostname,
 		path,
-		method: "GET",
+		method,
+		...(path.includes("graphql") ? { search: "query='query { viewer { login }}'" }: {}),
+		...(method === "POST" ? { body } : {}),
 		headers: {
+			// "Content-Type": "application/graphql",
 			"user-agent": "some dude lol",
-			"Authorization": `${isApp ? "Bearer" : "jwt"} ${token}`,
-		},
+			"Authorization": `${ isApp ? "Bearer" : "jwt" } ${path.includes("graphql") ? pat : token}`},
 		// @ts-ignore
 		agentOptions: {
 			ca: cert 
@@ -89,7 +97,7 @@ async function parseGithubJSON(repoitemsjsonstr) {
 	.filter(item => !item.fork && !item.private)
 	.map((item) => {
 		const url = new URL(item.languages_url);
-		const opts = getFetchGetOptions(url.pathname)
+		const opts = getFetchOptions(url.pathname)
 		return {
 			p: new Promise(async r => {
 				// console.log('requesting next lang')
@@ -149,10 +157,10 @@ async function githubthing(req, server_res) {
 			/**
 			 * @type {https.RequestOptions}
 			 */
-			const getoptions = getFetchGetOptions(path);
+			const opts = getFetchOptions(path);
 
 			https.get(
-				getoptions,
+				opts,
 				(res) => {
 					console.log("github api res", res.statusCode, res.statusMessage);
 
@@ -321,7 +329,7 @@ async function test () {
 				https.get(
 					// can get rate limited so be careful lol
 					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
-					getFetchGetOptions("/rate_limit", false),
+					getFetchOptions("/rate_limit", false),
 					// getFetchGetOptions("/app", true),
 					(res) => {
 						if (res.statusCode !== 200) {
@@ -347,5 +355,58 @@ async function test () {
 
 }
 
+async function testgraphql() {
+
+	let data = "";
+	const query = {
+		"query": `
+			query {
+				viewer {
+					login
+				}
+			}
+		`
+	}
+	const body = JSON.stringify({ query: "query { viewer { login }}" });
+	for (let i = 0; i < 1; i++) {
+		await (async () => {
+			await new Promise(r => setTimeout(() => {
+				const opts = getFetchOptions("/graphql", true, body, "GET");
+				// @ts-ignore
+				opts.agent = new https.Agent(opts);
+				const req = https.request(
+					// can get rate limited so be careful lol
+					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
+					opts,
+					// getFetchGetOptions("/app", true),
+					(res) => {
+						if (res.statusCode !== 200) {
+							console.log("bad request", res.statusCode, res.statusMessage, res.headers)
+						} else {
+							console.log("response", res.statusCode, res.statusMessage, res.headers)
+						}
+						res.on("data", (buffer) => {
+							data += buffer.toString();
+						})
+						res.on('end', () => {
+							console.log('tick', i, data.length); 
+							console.log(JSON.parse(data)); 
+							console.log('end')
+						});
+					}
+				)
+				req.on("error", (e) => {
+					console.error("request error", e);
+				})
+				req.end();
+				r(null)
+			}, 1000))
+			// console.log("data", data.length);
+		})()
+	}
+}
+
 // main();
-await test();
+// await test();
+
+await testgraphql();
