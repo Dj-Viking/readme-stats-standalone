@@ -31,12 +31,12 @@ function getFetchOptions(
 		hostname,
 		path,
 		method,
-		...(path.includes("graphql") ? { search: "query='query { viewer { login }}'" }: {}),
+		// ...(path.includes("graphql") ? { search: "query='query { viewer { login }}'" }: {}),
 		...(method === "POST" ? { body } : {}),
 		headers: {
-			// "Content-Type": "application/graphql",
+			...(method === "POST" ? { "Content-Type": "application/graphql" } : {}),
 			"user-agent": "some dude lol",
-			"Authorization": `${ isApp ? "Bearer" : "jwt" } ${path.includes("graphql") ? pat : token}`},
+			"Authorization": `${ isApp ? "bearer" : "jwt" } ${path.includes("graphql") ? pat : token}`},
 		// @ts-ignore
 		agentOptions: {
 			ca: cert 
@@ -358,22 +358,19 @@ async function test () {
 async function testgraphql() {
 
 	let data = "";
-	const query = {
-		"query": `
-			query {
-				viewer {
-					login
-				}
-			}
-		`
-	}
-	const body = JSON.stringify({ query: "query { viewer { login }}" });
 	for (let i = 0; i < 1; i++) {
 		await (async () => {
 			await new Promise(r => setTimeout(() => {
-				const opts = getFetchOptions("/graphql", true, body, "GET");
+				const opts = getFetchOptions(
+					"/graphql", 
+					true, 
+					// "{\"query\": \"query {viewer {login}}\"}", 
+					JSON.stringify({query: "query { viewer { login }}"}), 
+					"POST"
+				);
 				// @ts-ignore
 				opts.agent = new https.Agent(opts);
+				console.log("opts", opts);
 				const req = https.request(
 					// can get rate limited so be careful lol
 					// getFetchGetOptions("/users/dj-viking/repos?per_page=141", false),
@@ -390,7 +387,7 @@ async function testgraphql() {
 						})
 						res.on('end', () => {
 							console.log('tick', i, data.length); 
-							// console.log(JSON.parse(data).data.__schema.types); 
+							console.log(JSON.parse(data)); 
 							console.log('end')
 						});
 					}
