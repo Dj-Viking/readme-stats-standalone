@@ -1,0 +1,30 @@
+{
+  "name": "readme-stats-standalone",
+  "version": "1.0.0",
+  "description": "",
+  "main": "card.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dj-viking/readme-stats-standalone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dj-viking/readme-stats-standalone/issues"
+  },
+  "homepage": "https://github.com/dj-viking/readme-stats-standalone#readme",
+  "dependencies": {
+    "octokit": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2"
+  }
+}

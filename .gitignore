@@ -4,3 +4,7 @@
 appid
 jwt
 pat
+node_modules
+schema.docs.graphql
+repos.json
+package-lock.json
