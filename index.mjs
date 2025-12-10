@@ -6,6 +6,7 @@ const args = process.argv.slice(2);
 const rebuild = args[0] === "rebuild";
 
 /**
+ *	@param {{login: string}} login the user object thing 
  *	@param {string} after the end cursor of the previous page 
  * */
 const getNextReposFromCursorQuery = (login, after) => (`
@@ -50,6 +51,9 @@ const getNextReposFromCursorQuery = (login, after) => (`
 
 `);
 
+/**
+ *	@param {{login: string}} login the user object thing 
+ * */
 const getFirst100ReposQuery = (login) => (`
 	query getUserRepositories {
 	  user(login: "${login.login}") {
