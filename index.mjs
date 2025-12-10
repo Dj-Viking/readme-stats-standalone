@@ -144,12 +144,12 @@ try {
 		// TODO: generate the svg from the repo lang info
 	}
 } catch (e) {
-	console.error("[ERROR]: json file probably doesn't exist yet we'll make it now\n", e);
+	console.error("\x1b[32m", "[WARN]: json file probably doesn't exist yet we'll make it now\n", e.message, "\x1b[00m");
 
 	if (e instanceof Error && "path" in e) {
 		switch (e.code) {
 			case "ENOENT": {
-				fs.writeFileSync("./repos.json", "", {encoding: "utf-8"}); 
+				fs.writeFileSync(e.path, "", {encoding: "utf-8"}); 
 				await getRepoLangInfo();
 			} break;
 		}
