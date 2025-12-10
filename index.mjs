@@ -114,12 +114,12 @@ async function getRepoLangInfo() {
 
 	console.log("firstpage: ", res.user.repositories.nodes);
 
-	nodes_to_save = res.user.repositories.nodes.filter(n => !n.isPrivate && !n.isFork && !n.owner !== login.login);
+	nodes_to_save = res.user.repositories.nodes.filter(n => !n.isPrivate && !n.isFork && n.owner.login === login.login);
 
 	getrepolangs: while (true) {
 		res = await octokit.graphql(getNextReposFromCursorQuery(login,
 			                                             res.user.repositories.pageInfo.endCursor));
-		nodes_to_save = [...nodes_to_save, ...res.user.repositories.nodes.filter(n => !n.isPrivate && !n.isFork && !n.owner !== login.login)];
+		nodes_to_save = [...nodes_to_save, ...res.user.repositories.nodes.filter(n => !n.isPrivate && !n.isFork && n.owner.login === login.login)];
 
 		if (res.user.repositories.pageInfo.hasNextPage) {
 			continue getrepolangs;
@@ -127,6 +127,8 @@ async function getRepoLangInfo() {
 			break getrepolangs;
 		}
 	}
+
+		
 
 	fs.writeFileSync("repos.json", 
 		JSON.stringify(nodes_to_save, null, 4));
@@ -140,15 +142,16 @@ try {
 		await getRepoLangInfo();
 	} else {
 		const current_info = fs.readFileSync("./repos.json");
+		console.log("already have som info", current_info.toString());
 		console.log("already have som info", current_info.length);
 		// TODO: generate the svg from the repo lang info
 	}
 } catch (e) {
-	console.error("\x1b[32m", "[WARN]: json file probably doesn't exist yet we'll make it now\n", e.message, "\x1b[00m");
 
 	if (e instanceof Error && "path" in e) {
 		switch (e.code) {
 			case "ENOENT": {
+				console.error("\x1b[32m", "[WARN]: json file probably doesn't exist yet we'll make it now\n", e.message, "\x1b[00m");
 				fs.writeFileSync(e.path, "", {encoding: "utf-8"}); 
 				await getRepoLangInfo();
 			} break;
